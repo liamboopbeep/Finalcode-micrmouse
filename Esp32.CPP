@@ -3,6 +3,7 @@ TaskHandle_t Task2;
 
 #include <queue>
 #include <stack>
+#include "Wire.h"
 
 #define EncoderLA 33
 #define EncoderLB 32
@@ -134,6 +135,8 @@ void get_walls()
 
 void move_forward()
 {
+    //14723step ~ 11.02 rev ~ 18cm
+
     
     update_position(cur_direction);
     // log("foward");
@@ -509,7 +512,8 @@ const int R_motor_channel = 1;
 const int resolution = 12;
 
 void setup() {
-  Serial.begin(115200); 
+  //Serial.begin(115200); 
+  Wire.begin();
 
   pinMode(EncoderLA, INPUT_PULLUP);
   pinMode(EncoderRA, INPUT_PULLUP);
@@ -524,7 +528,6 @@ void setup() {
   ledcSetup(R_motor_channel, freq, resolution);
   ledcAttachPin(MotorER, R_motor_channel);
   
-  //create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
   xTaskCreatePinnedToCore(
                     Task1code,   /* Task function. */
                     "Task1",     /* name of task. */
@@ -535,7 +538,6 @@ void setup() {
                     0);          /* pin task to core 0 */                  
   delay(50); 
 
-  //create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
   xTaskCreatePinnedToCore(
                     Task2code,   /* Task function. */
                     "Task2",     /* name of task. */
