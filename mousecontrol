@@ -1,0 +1,154 @@
+#include <MPU6050_light.h>
+MPU6050 mpu(Wire);
+#include <PID_v1.h>
+
+#define EncoderLA 18
+#define EncoderLB 19
+#define EncoderRA 17
+#define EncoderRB 5
+#define GyroInt 4
+
+#define MotorLE 32 //pwm
+#define MotorLA 33
+#define MotorLB 25
+#define MotorRE 14 //pwm
+#define MotorRA 26
+#define MotorRB 27
+
+int step_per_cell = 2944;
+
+double kp = 10 , ki = 100 , kd = 0.01 ,inputL = 0, outputL = 0, setpointL = 0,inputR = 0, outputR = 0, setpointR = 0;
+volatile long lEncoderPos = 0;
+volatile long rEncoderPos = 0;
+volatile long deltaEncoderL=0;
+volatile long deltaEncoderR=0;
+volatile float rpmL =0;
+volatile float rpmR =0;
+
+PID L_PID(&inputL, &outputL, &setpointL, kp, ki, kd, DIRECT);
+PID R_PID(&inputR, &outputR, &setpointR, kp, ki, kd, DIRECT);  // if motor will only run at full speed try 'REVERSE' instead of 'DIRECT'
+double gyroP = 20 , gyroI = 10 , gyroD = 2 ,gyroIn = 0, gyroOut = 0, setAngle = 0;
+PID GyroPID(&gyroIn, &gyroOut, &setAngle, gyroP, gyroI, gyroD, DIRECT);
+
+
+const int freq = 32768;
+const int L_motor_channel = 0;
+const int R_motor_channel = 1;
+const int resolution = 10;
+
+void IRAM_ATTR updateGyro(){
+  mpu.update();
+}
+void IRAM_ATTR L_encoder_isr() {
+  deltaEncoderL++;
+  if (digitalRead(EncoderLB)==HIGH){lEncoderPos++;} 
+  else{lEncoderPos--;}     
+} 
+void IRAM_ATTR R_encoder_isr() {
+  deltaEncoderR++;
+  if (digitalRead(EncoderRB)==HIGH){rEncoderPos--;} 
+  else{rEncoderPos++;}     
+}
+
+void setup() {
+  Wire.begin();
+  Wire.setSpeed(CLOCK_SPEED_400KHZ);
+  mpu.begin();
+  mpu.setInterruptEnable(true);
+  Serial.begin();
+  pinMode(EncoderLA, INPUT_PULLDOWN);                  
+  pinMode(EncoderLB, INPUT_PULLDOWN);            
+  pinMode(MotorLA,OUTPUT);
+  pinMode(MotorLB,OUTPUT);
+
+  pinMode(EncoderRA, INPUT_PULLDOWN);                  
+  pinMode(EncoderRB, INPUT_PULLDOWN);   
+  pinMode(MotorRA,OUTPUT);
+  pinMode(MotorRB,OUTPUT);
+
+  ledcSetup(L_motor_channel, freq, resolution);
+  ledcAttachPin(MotorLE, L_motor_channel);
+  ledcSetup(R_motor_channel, freq, resolution);
+  ledcAttachPin(MotorRE, R_motor_channel);
+
+  attachInterrupt(digitalPinToInterrupt(EncoderLA), L_encoder_isr, RISING);
+  attachInterrupt(digitalPinToInterrupt(EncoderRA), R_encoder_isr, RISING);
+  attachInterrupt(digitalPinToInterrupt(GyroInt), updateGyro, RISING)
+
+
+  L_PID.SetMode(AUTOMATIC);
+  L_PID.SetSampleTime(1);
+  L_PID.SetOutputLimits(-600, 600);
+  R_PID.SetMode(AUTOMATIC);
+  R_PID.SetSampleTime(1);
+  R_PID.SetOutputLimits(-1024, 1024);
+  GyroPID.SetMode(AUTOMATIC);
+  GyroPID.SetSampleTime(1);
+  GyroPID.SetOutputLimits(-1024, 1024);
+  delay(1500);
+  mpu.calcOffsets();
+}
+
+void loop(){}
+
+void calcRpm(){
+
+
+}
+void calcMotor() {
+  inputL = LencoderPos;
+  inputR = RencoderPos;
+  L_PID.Compute();
+  R_PID.Compute();
+  L_out(outputL); 
+  R_out(outputR);
+  gyroIn = mpu.getAngleZ();
+  GyroPID.Compute();
+  turn();
+
+}  
+
+void sycn_speed(){
+float speed_diff = 
+
+
+}
+
+void move_forward(int cell_num){
+  setpointL += step_per_cell*cell_num;  
+  setpointR += step_per_cell*cell_num;
+}
+void L_out(int out) {
+  if (out > 0) {
+    digitalWrite(MotorLA,HIGH); 
+    digitalWrite(MotorLB,LOW);                                        
+  }
+  else {
+    digitalWrite(MotorLA,LOW);
+    digitalWrite(MotorLB,HIGH); 
+  }
+  ledcWrite(L_motor_channel, abs(out));
+}
+void R_out(int out) {  
+  if (out > 0) {
+    digitalWrite(MotorRA,HIGH); 
+    digitalWrite(MotorRB,LOW);                                        
+  }
+  else {
+    digitalWrite(MotorRA,LOW);
+    digitalWrite(MotorRB,HIGH); 
+  }
+  ledcWrite(R_motor_channel, abs(out));
+}
+void turn(){
+  
+  float error = setAngle - mpu.getAngleZ();
+  setpointL -=error *0.1;
+  setpointR +=error*0.1 ;
+}
+
+
+
+
+
+
