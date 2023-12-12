@@ -14,9 +14,9 @@ MPU6050 mpu(Wire);
 #define MotorRE 14 //pwm
 #define MotorRA 26
 #define MotorRB 27
-
+int max_rpm = 1000;
 int step_per_cell = 2944;
-
+unsigned long _1ms_clock =0;
 double kp = 10 , ki = 100 , kd = 0.01 ,inputL = 0, outputL = 0, setpointL = 0,inputR = 0, outputR = 0, setpointR = 0;
 volatile long lEncoderPos = 0;
 volatile long rEncoderPos = 0;
@@ -24,6 +24,7 @@ volatile long deltaEncoderL=0;
 volatile long deltaEncoderR=0;
 volatile float rpmL =0;
 volatile float rpmR =0;
+
 
 PID L_PID(&inputL, &outputL, &setpointL, kp, ki, kd, DIRECT);
 PID R_PID(&inputR, &outputR, &setpointR, kp, ki, kd, DIRECT);  // if motor will only run at full speed try 'REVERSE' instead of 'DIRECT'
@@ -52,10 +53,10 @@ void IRAM_ATTR R_encoder_isr() {
 
 void setup() {
   Wire.begin();
-  Wire.setSpeed(CLOCK_SPEED_400KHZ);
+  //Wire.setSpeed(CLOCK_SPEED_400KHZ);
   mpu.begin();
-  mpu.setInterruptEnable(true);
-  Serial.begin();
+  //mpu.setInterruptEnable(true);
+  //Serial.begin(115200);
   pinMode(EncoderLA, INPUT_PULLDOWN);                  
   pinMode(EncoderLB, INPUT_PULLDOWN);            
   pinMode(MotorLA,OUTPUT);
@@ -69,16 +70,16 @@ void setup() {
   ledcSetup(L_motor_channel, freq, resolution);
   ledcAttachPin(MotorLE, L_motor_channel);
   ledcSetup(R_motor_channel, freq, resolution);
-  ledcAttachPin(MotorRE, R_motor_channel);
+
 
   attachInterrupt(digitalPinToInterrupt(EncoderLA), L_encoder_isr, RISING);
   attachInterrupt(digitalPinToInterrupt(EncoderRA), R_encoder_isr, RISING);
-  attachInterrupt(digitalPinToInterrupt(GyroInt), updateGyro, RISING)
+  attachInterrupt(digitalPinToInterrupt(GyroInt), updateGyro, RISING);
 
 
   L_PID.SetMode(AUTOMATIC);
   L_PID.SetSampleTime(1);
-  L_PID.SetOutputLimits(-600, 600);
+  L_PID.SetOutputLimits(-1024, 1024);
   R_PID.SetMode(AUTOMATIC);
   R_PID.SetSampleTime(1);
   R_PID.SetOutputLimits(-1024, 1024);
@@ -92,26 +93,26 @@ void setup() {
 void loop(){}
 
 void calcRpm(){
-
-
+rpmR = deltaEncoderR*179.64;
+rpmL = deltaEncoderL*179.64;
 }
-void calcMotor() {
+void calcMove() {
   inputL = LencoderPos;
   inputR = RencoderPos;
   L_PID.Compute();
   R_PID.Compute();
+  //sycn_speed();
   L_out(outputL); 
   R_out(outputR);
-  gyroIn = mpu.getAngleZ();
-  GyroPID.Compute();
-  turn();
-
 }  
 
+void limit_speed(){
+
+
+}
 void sycn_speed(){
-float speed_diff = 
-
-
+float speed_diff = rpmL - rpmR;
+outputR += speed_diff*0.5;
 }
 
 void move_forward(int cell_num){
@@ -141,14 +142,9 @@ void R_out(int out) {
   ledcWrite(R_motor_channel, abs(out));
 }
 void turn(){
-  
   float error = setAngle - mpu.getAngleZ();
   setpointL -=error *0.1;
   setpointR +=error*0.1 ;
 }
-
-
-
-
 
 
